@@ -1,0 +1,73 @@
+name: Release Artifacts
+
+on:
+  release:
+    types:
+      - published
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-upload:
+    name: Build and upload (${{ matrix.label }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            label: win64
+            archive: win64.zip
+            shell: pwsh
+            build_cmd: .\build.bat
+            archive_cmd: |
+              $asset = "win64.zip"
+              Compress-Archive -Path build -DestinationPath $asset -Force
+              "asset_path=$asset" >> $env:GITHUB_OUTPUT
+          - os: ubuntu-latest
+            label: lin64
+            archive: lin64.tar.gz
+            shell: bash
+            build_cmd: |
+              chmod +x ./build.sh
+              ./build.sh
+            archive_cmd: |
+              asset="lin64.tar.gz"
+              tar -czf "$asset" build
+              echo "asset_path=$asset" >> "$GITHUB_OUTPUT"
+          - os: macos-latest
+            label: osx
+            archive: osx.tar.gz
+            shell: bash
+            build_cmd: |
+              chmod +x ./build.sh
+              ./build.sh
+            archive_cmd: |
+              asset="osx.tar.gz"
+              tar -czf "$asset" build
+              echo "asset_path=$asset" >> "$GITHUB_OUTPUT"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Build
+        shell: ${{ matrix.shell }}
+        run: ${{ matrix.build_cmd }}
+
+      - name: Archive build folder
+        id: archive
+        shell: ${{ matrix.shell }}
+        run: ${{ matrix.archive_cmd }}
+
+      - name: Upload release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.release.tag_name }}
+          files: ${{ steps.archive.outputs.asset_path }}

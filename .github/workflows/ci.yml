@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build-and-test:
+    name: Build and smoke test (${{ matrix.label }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            label: win64
+            shell: pwsh
+            build_cmd: .\build.bat
+          - os: ubuntu-latest
+            label: lin64
+            shell: bash
+            build_cmd: |
+              chmod +x ./build.sh
+              ./build.sh
+          - os: macos-latest
+            label: osx
+            shell: bash
+            build_cmd: |
+              chmod +x ./build.sh
+              ./build.sh
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Build
+        shell: ${{ matrix.shell }}
+        run: ${{ matrix.build_cmd }}
+
+      - name: Smoke test output (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          if (!(Test-Path "build/tts_server.py")) { throw "Missing build/tts_server.py" }
+          if (!(Test-Path "build/requirements.txt")) { throw "Missing build/requirements.txt" }
+          if (!(Test-Path "build/scripts/start_tts.bat")) { throw "Missing build/scripts/start_tts.bat" }
+          if (!(Test-Path "build/scripts/test_server.py")) { throw "Missing build/scripts/test_server.py" }
+          if (!(Test-Path "build/HonkTTS.Installer.exe")) { throw "Missing build/HonkTTS.Installer.exe" }
+
+      - name: Smoke test output (Linux/macOS)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          test -f build/tts_server.py
+          test -f build/requirements.txt
+          test -f build/scripts/start_tts.sh
+          test -f build/scripts/test_server.py
+          if [ -f build/HonkTTS.Installer ]; then
+            echo "Found build/HonkTTS.Installer"
+          elif [ -f build/HonkTTS.Installer.exe ]; then
+            echo "Found build/HonkTTS.Installer.exe"
+          else
+            echo "Missing installer binary in build/"
+            exit 1
+          fi
