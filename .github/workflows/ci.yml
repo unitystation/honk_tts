@@ -83,13 +83,16 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          Compress-Archive -Path build -DestinationPath "${{ matrix.archive_file }}" -Force
+          Compress-Archive -Path "build\\*" -DestinationPath "${{ matrix.archive_file }}" -Force
 
       - name: Archive build folder (Linux/macOS)
         if: runner.os != 'Windows'
         shell: bash
         run: |
-          zip -r "${{ matrix.archive_file }}" build
+          (
+            cd build
+            zip -r "../${{ matrix.archive_file }}" .
+          )
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4

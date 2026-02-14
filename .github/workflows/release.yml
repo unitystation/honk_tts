@@ -22,7 +22,7 @@ jobs:
             build_cmd: .\build.bat
             archive_cmd: |
               $asset = "win64.zip"
-              Compress-Archive -Path build -DestinationPath $asset -Force
+              Compress-Archive -Path "build\*" -DestinationPath $asset -Force
               "asset_path=$asset" >> $env:GITHUB_OUTPUT
           - os: ubuntu-latest
             label: lin64
@@ -32,7 +32,10 @@ jobs:
               ./build.sh
             archive_cmd: |
               asset="lin64.zip"
-              zip -r "$asset" build
+              (
+                cd build
+                zip -r "../$asset" .
+              )
               echo "asset_path=$asset" >> "$GITHUB_OUTPUT"
           - os: macos-latest
             label: osx
@@ -42,7 +45,10 @@ jobs:
               ./build.sh
             archive_cmd: |
               asset="osx.zip"
-              zip -r "$asset" build
+              (
+                cd build
+                zip -r "../$asset" .
+              )
               echo "asset_path=$asset" >> "$GITHUB_OUTPUT"
 
     steps:
