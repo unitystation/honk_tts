@@ -144,7 +144,7 @@ public sealed class EspeakStep(DownloadService downloader, ProcessRunner runner)
         var dataDirs = Directory.GetDirectories(extractDir, "espeak-ng-data", SearchOption.AllDirectories);
         var selectedDataDir = SelectLinuxDataDir(dataDirs)
             ?? throw new DirectoryNotFoundException(
-                $"Could not find a valid espeak-ng-data directory with en-us voice data under {extractDir}.");
+                $"Could not find a valid espeak-ng-data directory under {extractDir}.");
 
         var destData = Path.Combine(espeakDir, "espeak-ng-data");
         CopyDirectory(selectedDataDir, destData);
@@ -162,13 +162,16 @@ public sealed class EspeakStep(DownloadService downloader, ProcessRunner runner)
         if (candidates.Length == 0)
             return null;
 
-        // Require the runtime files needed by Coqui's espeak backend.
+        // Accept either:
+        // 1) legacy voice layout with voices/en-us, or
+        // 2) modern language layout with lang/gmw/en-US (we synthesize legacy voices later).
         foreach (var dir in candidates.OrderByDescending(static d => d.Length))
         {
             var voicesDir = Path.Combine(dir, "voices");
             var hasPhonTab = File.Exists(Path.Combine(dir, "phontab"));
             var hasVoices = Directory.Exists(voicesDir);
-            if (hasPhonTab && hasVoices && HasEnUsVoice(dir))
+            var hasLangEnUs = File.Exists(Path.Combine(dir, "lang", "gmw", "en-US"));
+            if (hasPhonTab && hasVoices && (HasEnUsVoice(dir) || hasLangEnUs))
                 return dir;
         }
 
