@@ -22,6 +22,9 @@ public sealed class EspeakStep(DownloadService downloader, ProcessRunner runner)
             return true;
 
         var installed = config.InstalledManifest;
+        if (installed is null)
+            return true; // Recover from interrupted installs without config.json
+
         return installed != null &&
                installed.EspeakVersion != config.ExpectedManifest.EspeakVersion;
     }
@@ -135,13 +138,46 @@ public sealed class EspeakStep(DownloadService downloader, ProcessRunner runner)
             }
         }
 
-        // It lives under usr/lib/<arch>/espeak-ng-data/ or usr/share/espeak-ng-data/
+        // It lives under usr/lib/<arch>/espeak-ng-data/ or usr/share/espeak-ng-data/.
+        // Some extracted trees may also contain unrelated directories with this name
+        // (e.g. documentation paths), so pick the one that looks like real runtime data.
         var dataDirs = Directory.GetDirectories(extractDir, "espeak-ng-data", SearchOption.AllDirectories);
-        if (dataDirs.Length > 0)
+        var selectedDataDir = SelectLinuxDataDir(dataDirs)
+            ?? throw new DirectoryNotFoundException(
+                $"Could not find a valid espeak-ng-data directory with en-us voice data under {extractDir}.");
+
+        var destData = Path.Combine(espeakDir, "espeak-ng-data");
+        CopyDirectory(selectedDataDir, destData);
+
+        if (!HasEnUsVoice(destData))
         {
-            var destData = Path.Combine(espeakDir, "espeak-ng-data");
-            CopyDirectory(dataDirs[0], destData);
+            throw new InvalidOperationException(
+                $"eSpeak data is missing en-us voice after extraction: {destData}");
         }
+    }
+
+    private static string? SelectLinuxDataDir(string[] candidates)
+    {
+        if (candidates.Length == 0)
+            return null;
+
+        // Require the runtime files needed by Coqui's espeak backend.
+        foreach (var dir in candidates.OrderByDescending(static d => d.Length))
+        {
+            var voicesDir = Path.Combine(dir, "voices");
+            var hasPhonTab = File.Exists(Path.Combine(dir, "phontab"));
+            var hasVoices = Directory.Exists(voicesDir);
+            if (hasPhonTab && hasVoices && HasEnUsVoice(dir))
+                return dir;
+        }
+
+        return null;
+    }
+
+    private static bool HasEnUsVoice(string dataDir)
+    {
+        return File.Exists(Path.Combine(dataDir, "voices", "en", "en-us")) ||
+               File.Exists(Path.Combine(dataDir, "voices", "en-us"));
     }
 
     private static bool IsEspeakOnPath()

@@ -15,8 +15,10 @@ public sealed class PythonStep(DownloadService downloader) : IInstallStep
             return true;
 
         var installed = config.InstalledManifest;
-        return installed != null &&
-               installed.PythonVersion != config.ExpectedManifest.PythonVersion;
+        if (installed is null)
+            return true; // Recover from interrupted installs without config.json
+
+        return installed.PythonVersion != config.ExpectedManifest.PythonVersion;
     }
 
     public async Task ExecuteAsync(InstallConfig config)

@@ -19,8 +19,10 @@ public sealed class PackagesStep(ProcessRunner runner) : IInstallStep
             return true;
 
         var installed = config.InstalledManifest;
-        return installed != null &&
-               installed.RequirementsHash != config.ExpectedManifest.RequirementsHash;
+        if (installed is null)
+            return true; // Recover from interrupted installs without config.json
+
+        return installed.RequirementsHash != config.ExpectedManifest.RequirementsHash;
     }
 
     public async Task ExecuteAsync(InstallConfig config)
