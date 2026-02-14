@@ -8,6 +8,23 @@ namespace HonkTTS.Installer;
 
 public class Program
 {
+    private sealed record CliOptions(
+        string? BaseDir,
+        HashSet<string> SkipSteps,
+        HashSet<string> OnlySteps);
+
+    private sealed record StepEntry(string Key, IInstallStep Step);
+
+    private static readonly string[] ValidStepKeys =
+    [
+        "python",
+        "venv",
+        "packages",
+        "espeak",
+        "warmup",
+        "server",
+    ];
+
     public static async Task<int> Main(string[] args)
     {
         Console.WriteLine("HonkTTS Installer");
@@ -21,16 +38,22 @@ public class Program
         {
             e.Cancel = true; // Prevent immediate termination so we can clean up.
             Console.WriteLine();
-            Console.WriteLine("Interrupted — killing child processes...");
+            Console.WriteLine("Interrupted - killing child processes...");
             runner.KillActive();
             Environment.Exit(130);
         };
 
         try
         {
-            var config = InstallConfig.FromArgs(args);
+            var cli = ParseArgs(args);
+            var config = InstallConfig.FromArgs(cli.BaseDir is null ? [] : [cli.BaseDir]);
+            Console.WriteLine($"Installer version: {config.ExpectedManifest.InstallerVersion}");
             Console.WriteLine($"Install directory: {config.BaseDir}");
             Console.WriteLine($"Platform: {GetPlatformLabel()}");
+            if (cli.SkipSteps.Count > 0)
+                Console.WriteLine($"CLI skips: {string.Join(", ", cli.SkipSteps.Order())}");
+            if (cli.OnlySteps.Count > 0)
+                Console.WriteLine($"CLI only: {string.Join(", ", cli.OnlySteps.Order())}");
             Console.WriteLine();
 
             Directory.CreateDirectory(config.BaseDir);
@@ -45,7 +68,7 @@ public class Program
                 }
                 catch
                 {
-                    // Corrupt config.json — treat as fresh install
+                    // Corrupt config.json - treat as fresh install
                 }
             }
 
@@ -59,30 +82,39 @@ public class Program
 
             using var downloader = new DownloadService();
 
-            IInstallStep[] steps =
+            StepEntry[] allSteps =
             [
-                new PythonStep(downloader),
-                new VenvStep(runner),
-                new PackagesStep(runner),
-                new EspeakStep(downloader, runner),
-                new ModelWarmupStep(runner),
-                new ServerFilesStep(),
+                new("python", new PythonStep(downloader)),
+                new("venv", new VenvStep(runner)),
+                new("packages", new PackagesStep(runner)),
+                new("espeak", new EspeakStep(downloader, runner)),
+                new("warmup", new ModelWarmupStep(runner)),
+                new("server", new ServerFilesStep()),
             ];
+
+            var enabledSteps = allSteps.Where(step =>
+                    (cli.OnlySteps.Count == 0 || cli.OnlySteps.Contains(step.Key)) &&
+                    !cli.SkipSteps.Contains(step.Key))
+                .ToArray();
+
+            if (enabledSteps.Length == 0)
+                throw new ArgumentException("No steps selected after applying --skip/--only filters.");
 
             var totalStopwatch = Stopwatch.StartNew();
 
-            for (int i = 0; i < steps.Length; i++)
+            for (int i = 0; i < enabledSteps.Length; i++)
             {
-                var step = steps[i];
-                var label = $"[{i + 1}/{steps.Length}] {step.Name}";
+                var stepEntry = enabledSteps[i];
+                var step = stepEntry.Step;
+                var label = $"[{i + 1}/{enabledSteps.Length}] {step.Name} ({stepEntry.Key})";
 
                 if (!step.ShouldRun(config))
                 {
-                    Console.WriteLine($"{label} — skipped (already installed)");
+                    Console.WriteLine($"{label} - skipped (already installed)");
                     continue;
                 }
 
-                Console.WriteLine($"{label}");
+                Console.WriteLine(label);
                 var sw = Stopwatch.StartNew();
 
                 await step.ExecuteAsync(config);
@@ -116,6 +148,88 @@ public class Program
 
         Environment.Exit(exitCode);
         return exitCode;
+    }
+
+    private static CliOptions ParseArgs(string[] args)
+    {
+        string? baseDir = null;
+        var skip = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var only = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        for (var i = 0; i < args.Length; i++)
+        {
+            var arg = args[i];
+
+            if (arg is "-h" or "--help")
+                PrintUsageAndExit();
+
+            if (arg == "--skip" || arg == "--only")
+            {
+                if (i + 1 >= args.Length)
+                    throw new ArgumentException($"Missing value for {arg}");
+
+                var target = arg == "--skip" ? skip : only;
+                AddStepList(target, args[++i], arg);
+                continue;
+            }
+
+            if (arg.StartsWith("--skip=", StringComparison.OrdinalIgnoreCase))
+            {
+                AddStepList(skip, arg["--skip=".Length..], "--skip");
+                continue;
+            }
+
+            if (arg.StartsWith("--only=", StringComparison.OrdinalIgnoreCase))
+            {
+                AddStepList(only, arg["--only=".Length..], "--only");
+                continue;
+            }
+
+            if (arg.StartsWith("-", StringComparison.Ordinal))
+                throw new ArgumentException($"Unknown option: {arg}");
+
+            if (baseDir is null)
+            {
+                baseDir = arg;
+                continue;
+            }
+
+            throw new ArgumentException($"Unexpected positional argument: {arg}");
+        }
+
+        return new CliOptions(baseDir, skip, only);
+    }
+
+    private static void AddStepList(HashSet<string> target, string raw, string optionName)
+    {
+        var keys = raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (keys.Length == 0)
+            throw new ArgumentException($"No step keys provided for {optionName}");
+
+        foreach (var key in keys)
+        {
+            if (!ValidStepKeys.Contains(key, StringComparer.OrdinalIgnoreCase))
+            {
+                throw new ArgumentException(
+                    $"Invalid step '{key}' for {optionName}. Valid: {string.Join(", ", ValidStepKeys)}");
+            }
+
+            target.Add(key.ToLowerInvariant());
+        }
+    }
+
+    private static void PrintUsageAndExit()
+    {
+        Console.WriteLine("Usage:");
+        Console.WriteLine("  HonkTTS.Installer [install_dir] [--skip <steps>] [--only <steps>]");
+        Console.WriteLine();
+        Console.WriteLine("Step keys:");
+        Console.WriteLine("  python, venv, packages, espeak, warmup, server");
+        Console.WriteLine();
+        Console.WriteLine("Examples:");
+        Console.WriteLine("  HonkTTS.Installer /root/tts --skip packages,warmup");
+        Console.WriteLine("  HonkTTS.Installer /root/tts --only espeak");
+        Environment.Exit(0);
     }
 
     private static string GetPlatformLabel()
