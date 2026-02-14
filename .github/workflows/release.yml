@@ -26,23 +26,23 @@ jobs:
               "asset_path=$asset" >> $env:GITHUB_OUTPUT
           - os: ubuntu-latest
             label: lin64
-            archive: lin64.tar.gz
+            archive: lin64.zip
             build_cmd: |
               chmod +x ./build.sh
               ./build.sh
             archive_cmd: |
-              asset="lin64.tar.gz"
-              tar -czf "$asset" build
+              asset="lin64.zip"
+              zip -r "$asset" build
               echo "asset_path=$asset" >> "$GITHUB_OUTPUT"
           - os: macos-latest
             label: osx
-            archive: osx.tar.gz
+            archive: osx.zip
             build_cmd: |
               chmod +x ./build.sh
               ./build.sh
             archive_cmd: |
-              asset="osx.tar.gz"
-              tar -czf "$asset" build
+              asset="osx.zip"
+              zip -r "$asset" build
               echo "asset_path=$asset" >> "$GITHUB_OUTPUT"
 
     steps:
