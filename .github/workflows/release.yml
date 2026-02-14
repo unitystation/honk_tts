@@ -19,7 +19,6 @@ jobs:
           - os: windows-latest
             label: win64
             archive: win64.zip
-            shell: pwsh
             build_cmd: .\build.bat
             archive_cmd: |
               $asset = "win64.zip"
@@ -28,7 +27,6 @@ jobs:
           - os: ubuntu-latest
             label: lin64
             archive: lin64.tar.gz
-            shell: bash
             build_cmd: |
               chmod +x ./build.sh
               ./build.sh
@@ -39,7 +37,6 @@ jobs:
           - os: macos-latest
             label: osx
             archive: osx.tar.gz
-            shell: bash
             build_cmd: |
               chmod +x ./build.sh
               ./build.sh
@@ -57,17 +54,38 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      - name: Build
-        shell: ${{ matrix.shell }}
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
         run: ${{ matrix.build_cmd }}
 
-      - name: Archive build folder
-        id: archive
-        shell: ${{ matrix.shell }}
+      - name: Build (Linux/macOS)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: ${{ matrix.build_cmd }}
+
+      - name: Archive build folder (Windows)
+        if: runner.os == 'Windows'
+        id: archive_windows
+        shell: pwsh
         run: ${{ matrix.archive_cmd }}
 
-      - name: Upload release asset
+      - name: Archive build folder (Linux/macOS)
+        if: runner.os != 'Windows'
+        id: archive_unix
+        shell: bash
+        run: ${{ matrix.archive_cmd }}
+
+      - name: Upload release asset (Windows)
+        if: runner.os == 'Windows'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.release.tag_name }}
-          files: ${{ steps.archive.outputs.asset_path }}
+          files: ${{ steps.archive_windows.outputs.asset_path }}
+
+      - name: Upload release asset (Linux/macOS)
+        if: runner.os != 'Windows'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.release.tag_name }}
+          files: ${{ steps.archive_unix.outputs.asset_path }}

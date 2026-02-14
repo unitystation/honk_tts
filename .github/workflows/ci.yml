@@ -18,17 +18,14 @@ jobs:
         include:
           - os: windows-latest
             label: win64
-            shell: pwsh
             build_cmd: .\build.bat
           - os: ubuntu-latest
             label: lin64
-            shell: bash
             build_cmd: |
               chmod +x ./build.sh
               ./build.sh
           - os: macos-latest
             label: osx
-            shell: bash
             build_cmd: |
               chmod +x ./build.sh
               ./build.sh
@@ -42,8 +39,14 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      - name: Build
-        shell: ${{ matrix.shell }}
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ${{ matrix.build_cmd }}
+
+      - name: Build (Linux/macOS)
+        if: runner.os != 'Windows'
+        shell: bash
         run: ${{ matrix.build_cmd }}
 
       - name: Smoke test output (Windows)
