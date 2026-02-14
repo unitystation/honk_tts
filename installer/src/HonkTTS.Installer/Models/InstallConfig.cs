@@ -47,12 +47,16 @@ public sealed class InstallConfig
     {
         BaseDir = Path.GetFullPath(baseDir);
 
-        // The server source is located relative to the installer binary or CWD.
+        // The server source can be either:
+        // 1) a "server" folder (dev/repo layout), or
+        // 2) the same folder as the installer (release artifact layout).
         var candidates = new[]
         {
             Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "server"),
             Path.Combine(AppContext.BaseDirectory, "server"),
+            AppContext.BaseDirectory,
             Path.Combine(Directory.GetCurrentDirectory(), "server"),
+            Directory.GetCurrentDirectory(),
             Path.Combine(Directory.GetCurrentDirectory(), "..", "server"),
         };
 
@@ -60,6 +64,6 @@ public sealed class InstallConfig
             .Select(d => Path.GetFullPath(d))
             .FirstOrDefault(d => File.Exists(Path.Combine(d, "tts_server.py")))
             ?? throw new DirectoryNotFoundException(
-                "Could not locate server/tts_server.py relative to the installer.");
+                "Could not locate tts_server.py relative to the installer.");
     }
 }
