@@ -23,17 +23,23 @@ public sealed class PythonStep(DownloadService downloader) : IInstallStep
 
     public async Task ExecuteAsync(InstallConfig config)
     {
-        // If Python version is changing, the venv is tied to the old binary — nuke it
+        var installed = config.InstalledManifest;
+        var pythonVersionChanged = installed is not null &&
+                                   installed.PythonVersion != config.ExpectedManifest.PythonVersion;
+
+        // Recreate venv whenever we replace/reinstall bundled Python.
         if (Directory.Exists(config.VenvDir))
         {
-            Console.WriteLine("    Removing old venv (Python version changed)...");
+            Console.WriteLine(pythonVersionChanged
+                ? "    Removing old venv (Python version changed)..."
+                : "    Removing old venv (refreshing Python runtime)...");
             Directory.Delete(config.VenvDir, recursive: true);
         }
 
         Directory.CreateDirectory(config.TempDir);
         var archivePath = Path.Combine(config.TempDir, PlatformInfo.PythonArchiveFileName);
 
-        Console.WriteLine($"    Downloading Python 3.10.13 standalone...");
+        Console.WriteLine("    Downloading Python 3.10.13 standalone...");
         await downloader.DownloadFileAsync(PlatformInfo.PythonArchiveUrl, archivePath);
 
         Console.WriteLine("    Extracting to python/...");

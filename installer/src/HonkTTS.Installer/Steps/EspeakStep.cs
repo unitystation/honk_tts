@@ -148,6 +148,7 @@ public sealed class EspeakStep(DownloadService downloader, ProcessRunner runner)
 
         var destData = Path.Combine(espeakDir, "espeak-ng-data");
         CopyDirectory(selectedDataDir, destData);
+        EnsureEnUsVoiceCompatibility(destData);
 
         if (!HasEnUsVoice(destData))
         {
@@ -178,6 +179,31 @@ public sealed class EspeakStep(DownloadService downloader, ProcessRunner runner)
     {
         return File.Exists(Path.Combine(dataDir, "voices", "en", "en-us")) ||
                File.Exists(Path.Combine(dataDir, "voices", "en-us"));
+    }
+
+    private static void EnsureEnUsVoiceCompatibility(string dataDir)
+    {
+        if (HasEnUsVoice(dataDir))
+            return;
+
+        // Debian's espeak-ng-data can provide language definitions in lang/gmw/en-US
+        // without the legacy voices/en-us entry expected by some phonemizer stacks.
+        var langEnUs = Path.Combine(dataDir, "lang", "gmw", "en-US");
+        if (!File.Exists(langEnUs))
+            return;
+
+        var voicesRoot = Path.Combine(dataDir, "voices");
+        var voicesEn = Path.Combine(voicesRoot, "en");
+        Directory.CreateDirectory(voicesRoot);
+        Directory.CreateDirectory(voicesEn);
+
+        var voiceBody = """
+            name english-us
+            language en-us
+            """;
+
+        File.WriteAllText(Path.Combine(voicesRoot, "en-us"), voiceBody);
+        File.WriteAllText(Path.Combine(voicesEn, "en-us"), voiceBody);
     }
 
     private static bool IsEspeakOnPath()
