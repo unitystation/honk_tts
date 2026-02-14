@@ -1,3 +1,7 @@
+# Build output
+tts/
+build/
+
 # .NET
 bin/
 obj/
@@ -5,6 +9,7 @@ obj/
 *.suo
 .vs/
 publish/
+server/HonkTTS.Installer.exe
 
 # Python
 __pycache__/

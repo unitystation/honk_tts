@@ -1,0 +1,5 @@
+TTS==0.22.0
+flask==3.0.3
+waitress==3.0.2
+scipy==1.11.4
+numpy==1.22.0
