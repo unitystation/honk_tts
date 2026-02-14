@@ -19,19 +19,16 @@ jobs:
           - os: windows-latest
             label: win64
             build_cmd: .\build.bat
-            archive_file: win64.zip
           - os: ubuntu-latest
             label: lin64
             build_cmd: |
               chmod +x ./build.sh
               ./build.sh
-            archive_file: lin64.zip
           - os: macos-latest
             label: osx
             build_cmd: |
               chmod +x ./build.sh
               ./build.sh
-            archive_file: osx.zip
 
     steps:
       - name: Checkout
@@ -79,24 +76,9 @@ jobs:
             exit 1
           fi
 
-      - name: Archive build folder (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          Compress-Archive -Path "build\\*" -DestinationPath "${{ matrix.archive_file }}" -Force
-
-      - name: Archive build folder (Linux/macOS)
-        if: runner.os != 'Windows'
-        shell: bash
-        run: |
-          (
-            cd build
-            zip -r "../${{ matrix.archive_file }}" .
-          )
-
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.label }}
-          path: ${{ matrix.archive_file }}
+          path: build/*
           if-no-files-found: error
