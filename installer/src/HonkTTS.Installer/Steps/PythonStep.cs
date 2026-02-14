@@ -7,7 +7,7 @@ namespace HonkTTS.Installer.Steps;
 
 public sealed class PythonStep(DownloadService downloader) : IInstallStep
 {
-    public string Name => "Python 3.10.11 (standalone)";
+    public string Name => "Python 3.10.13 (standalone)";
 
     public bool ShouldRun(InstallConfig config)
     {
@@ -31,7 +31,7 @@ public sealed class PythonStep(DownloadService downloader) : IInstallStep
         Directory.CreateDirectory(config.TempDir);
         var archivePath = Path.Combine(config.TempDir, PlatformInfo.PythonArchiveFileName);
 
-        Console.WriteLine($"    Downloading Python 3.10.11 standalone...");
+        Console.WriteLine($"    Downloading Python 3.10.13 standalone...");
         await downloader.DownloadFileAsync(PlatformInfo.PythonArchiveUrl, archivePath);
 
         Console.WriteLine("    Extracting to python/...");

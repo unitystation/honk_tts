@@ -6,7 +6,7 @@ namespace HonkTTS.Installer.Models;
 public sealed class InstallManifest
 {
     public string InstallerVersion { get; set; } = "1.0.0";
-    public string PythonVersion { get; set; } = "3.10.11";
+    public string PythonVersion { get; set; } = "3.10.13";
     public string EspeakVersion { get; set; } = "1.51";
     public string TtsModel { get; set; } = "tts_models/en/vctk/vits";
     public string RequirementsHash { get; set; } = "";

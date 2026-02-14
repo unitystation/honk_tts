@@ -17,10 +17,10 @@ public static class PlatformInfo
 
     // Uses python-build-standalone (same source as uv/rye).
     // install_only builds are minimal, relocatable, and include pip.
-    private const string PythonVersion = "3.10.11";
-    private const string StandaloneRelease = "20230507";
+    private const string PythonVersion = "3.10.13";
+    private const string StandaloneRelease = "20240107";
     private const string StandaloneBaseUrl =
-        $"https://github.com/indygreg/python-build-standalone/releases/download/{StandaloneRelease}";
+        $"https://github.com/astral-sh/python-build-standalone/releases/download/{StandaloneRelease}";
 
     public static string PythonArchiveUrl
     {
