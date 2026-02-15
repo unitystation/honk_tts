@@ -58,13 +58,15 @@ public sealed class ServerFilesStep : IInstallStep
         }
         else if (PlatformInfo.IsLinux)
         {
-            // Linux: portable eSpeak, so we set env vars for the lib and data
+            // Linux: prefer system eSpeak; if a bundled espeak-ng dir exists, use it.
             var sh = $"""
                 #!/usr/bin/env bash
                 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-                export ESPEAK_DATA_PATH="{config.EspeakDataDir}"
-                export LD_LIBRARY_PATH="{config.EspeakDir}:$LD_LIBRARY_PATH"
-                export PATH="{config.EspeakDir}:$PATH"
+                if [ -d "{config.EspeakDir}" ]; then
+                  export ESPEAK_DATA_PATH="{config.EspeakDataDir}"
+                  export LD_LIBRARY_PATH="{config.EspeakDir}:$LD_LIBRARY_PATH"
+                  export PATH="{config.EspeakDir}:$PATH"
+                fi
                 echo "Starting HonkTTS server on http://127.0.0.1:5234 ..."
                 "{config.VenvPythonExe}" "{serverScript}"
                 """;
@@ -118,9 +120,11 @@ public sealed class ServerFilesStep : IInstallStep
         {
             var sh = $"""
                 #!/usr/bin/env bash
-                export ESPEAK_DATA_PATH="{config.EspeakDataDir}"
-                export LD_LIBRARY_PATH="{config.EspeakDir}:$LD_LIBRARY_PATH"
-                export PATH="{config.EspeakDir}:$PATH"
+                if [ -d "{config.EspeakDir}" ]; then
+                  export ESPEAK_DATA_PATH="{config.EspeakDataDir}"
+                  export LD_LIBRARY_PATH="{config.EspeakDir}:$LD_LIBRARY_PATH"
+                  export PATH="{config.EspeakDir}:$PATH"
+                fi
                 "{config.VenvPythonExe}" "{testScript}" "$@"
                 """;
 

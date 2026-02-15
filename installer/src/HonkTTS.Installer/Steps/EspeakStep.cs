@@ -132,7 +132,13 @@ public sealed class EspeakStep(DownloadService downloader, ProcessRunner runner)
         var usrLib = Path.Combine(extractDir, "usr", "lib");
         if (Directory.Exists(usrLib))
         {
-            var soPatterns = new[] { "libespeak-ng*", "libpcaudio*" };
+            var soPatterns = new[]
+            {
+                "libespeak-ng*",
+                "libpcaudio*",
+                "libsonic*",
+                "libportaudio*",
+            };
             foreach (var pattern in soPatterns)
             {
                 foreach (var soFile in Directory.GetFiles(usrLib, pattern, SearchOption.AllDirectories))
