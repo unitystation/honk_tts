@@ -100,6 +100,7 @@ public sealed class EspeakStep(DownloadService downloader, ProcessRunner runner)
         Console.WriteLine("    Assembling eSpeak NG directory...");
         PrepareEspeakDir(config);
         AssembleLinuxEspeak(extractDir, config.EspeakDir);
+        await ValidateLinuxEspeakSupportsEnUs(config);
 
         Directory.Delete(extractDir, recursive: true);
     }
@@ -189,12 +190,6 @@ public sealed class EspeakStep(DownloadService downloader, ProcessRunner runner)
         if (HasEnUsVoice(dataDir))
             return;
 
-        // Debian's espeak-ng-data can provide language definitions in lang/gmw/en-US
-        // without the legacy voices/en-us entry expected by some phonemizer stacks.
-        var langEnUs = Path.Combine(dataDir, "lang", "gmw", "en-US");
-        if (!File.Exists(langEnUs))
-            return;
-
         var voicesRoot = Path.Combine(dataDir, "voices");
         var voicesEn = Path.Combine(voicesRoot, "en");
         Directory.CreateDirectory(voicesRoot);
@@ -203,10 +198,43 @@ public sealed class EspeakStep(DownloadService downloader, ProcessRunner runner)
         var voiceBody = """
             name english-us
             language en-us
+            language en
             """;
 
         File.WriteAllText(Path.Combine(voicesRoot, "en-us"), voiceBody);
         File.WriteAllText(Path.Combine(voicesEn, "en-us"), voiceBody);
+    }
+
+    private async Task ValidateLinuxEspeakSupportsEnUs(InstallConfig config)
+    {
+        var env = new Dictionary<string, string>
+        {
+            ["ESPEAK_DATA_PATH"] = config.EspeakDataDir,
+            ["PATH"] = $"{config.EspeakDir}:{Environment.GetEnvironmentVariable("PATH")}",
+        };
+
+        var existingLdPath = Environment.GetEnvironmentVariable("LD_LIBRARY_PATH") ?? "";
+        env["LD_LIBRARY_PATH"] = string.IsNullOrEmpty(existingLdPath)
+            ? config.EspeakDir
+            : $"{config.EspeakDir}:{existingLdPath}";
+
+        var result = await runner.RunWithResultAsync(
+            config.EspeakExe,
+            "--voices",
+            config.EspeakDir,
+            env);
+
+        if (result.ExitCode != 0)
+            throw new InvalidOperationException(
+                $"eSpeak validation failed: {(string.IsNullOrWhiteSpace(result.StdErr) ? result.StdOut : result.StdErr)}");
+
+        var combined = $"{result.StdOut}\n{result.StdErr}";
+        if (!combined.Contains(" en-us ", StringComparison.OrdinalIgnoreCase) &&
+            !combined.Contains("\ten-us\t", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                "eSpeak validation failed: en-us is not reported by '--voices' after installation.");
+        }
     }
 
     private static bool IsEspeakOnPath()
