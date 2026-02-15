@@ -239,7 +239,7 @@ def open_file(path: str):
 
 
 
-def test_health():
+def test_health(fail_warnings: bool):
     print("\n=== /health ===")
     status, body = request_json("GET", "/health")
 
@@ -273,6 +273,9 @@ def test_health():
         print()
         for w in warnings:
             print(f"  WARNING: {w}")
+        if fail_warnings:
+            print("  FAIL: warnings treated as errors (--fail-warnings)")
+            return False
     else:
         print("\n  All paths look correct (installer-provided)")
 
@@ -379,6 +382,8 @@ def main():
     parser.add_argument("--play", action="store_true", help="Open generated WAV files in default player")
     parser.add_argument("--keep", action="store_true", help="Save generated WAV files to temp dir")
     parser.add_argument("--no-start", action="store_true", help="Don't manage the server — test an already-running one")
+    parser.add_argument("--fail-warnings", action="store_true",
+                        help="Treat health warnings as failures (useful for CI)")
     args = parser.parse_args()
 
     print(f"Testing HonkTTS server at {BASE_URL}")
@@ -390,7 +395,7 @@ def main():
 
     try:
         results = {}
-        results["health"] = test_health()
+        results["health"] = test_health(args.fail_warnings)
         results["generate_audio"] = test_generate_audio(args.play, args.keep or args.play)
         results["generate_robotic"] = test_generate_robotic(args.play, args.keep or args.play)
     finally:

@@ -68,40 +68,7 @@ public sealed class EspeakStep(DownloadService downloader, ProcessRunner runner)
 
     private static bool IsEspeakOnPath()
     {
-        foreach (var candidate in new[] { "espeak-ng", "espeak" })
-        {
-            try
-            {
-                var psi = new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = candidate,
-                    Arguments = "--version",
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    CreateNoWindow = true,
-                };
-
-                using var p = System.Diagnostics.Process.Start(psi);
-                if (p is null)
-                    continue;
-
-                if (!p.WaitForExit(5000))
-                {
-                    p.Kill(entireProcessTree: true);
-                    continue;
-                }
-
-                if (p.ExitCode == 0)
-                    return true;
-            }
-            catch
-            {
-                // Candidate not available.
-            }
-        }
-
-        return false;
+        return ResolveOnPath("espeak-ng") is not null || ResolveOnPath("espeak") is not null;
     }
 
     private static void PrepareEspeakDir(InstallConfig config)
@@ -137,5 +104,24 @@ public sealed class EspeakStep(DownloadService downloader, ProcessRunner runner)
             var relative = Path.GetRelativePath(sourceDir, file);
             File.Copy(file, Path.Combine(destDir, relative), overwrite: true);
         }
+    }
+
+    private static string? ResolveOnPath(string command)
+    {
+        if (Path.IsPathRooted(command) && File.Exists(command))
+            return command;
+
+        var path = Environment.GetEnvironmentVariable("PATH");
+        if (string.IsNullOrWhiteSpace(path))
+            return null;
+
+        foreach (var dir in path.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var candidate = Path.Combine(dir, command);
+            if (File.Exists(candidate))
+                return candidate;
+        }
+
+        return null;
     }
 }

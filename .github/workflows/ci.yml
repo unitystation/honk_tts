@@ -76,6 +76,44 @@ jobs:
             exit 1
           fi
 
+      - name: Install eSpeak prerequisite (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y espeak-ng
+
+      - name: Install eSpeak prerequisite (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          brew update
+          brew install espeak-ng
+
+      - name: Runtime installer test (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $installDir = Join-Path $env:RUNNER_TEMP "tts-install"
+          & "build/HonkTTS.Installer.exe" $installDir
+          if ($LASTEXITCODE -ne 0) { throw "Installer failed with exit code $LASTEXITCODE" }
+          & (Join-Path $installDir "test_tts.bat") --fail-warnings
+          if ($LASTEXITCODE -ne 0) { throw "test_tts.bat failed with exit code $LASTEXITCODE" }
+
+      - name: Runtime installer test (Linux/macOS)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          install_dir="$RUNNER_TEMP/tts-install"
+          if [ -f build/HonkTTS.Installer ]; then
+            chmod +x build/HonkTTS.Installer
+            build/HonkTTS.Installer "$install_dir"
+          else
+            build/HonkTTS.Installer.exe "$install_dir"
+          fi
+          chmod +x "$install_dir/test_tts.sh"
+          "$install_dir/test_tts.sh"
+
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
