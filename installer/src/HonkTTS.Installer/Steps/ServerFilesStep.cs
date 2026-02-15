@@ -50,7 +50,6 @@ public sealed class ServerFilesStep : IInstallStep
                 set PATH={config.EspeakDir};%PATH%
                 echo Starting HonkTTS server on http://127.0.0.1:5234 ...
                 "{config.VenvPythonExe}" "{serverScript}"
-                pause
                 """;
 
             File.WriteAllText(config.StartScript, bat);
