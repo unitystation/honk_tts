@@ -44,9 +44,11 @@ public static class PlatformInfo
         "https://github.com/espeak-ng/espeak-ng/releases/download/1.51/espeak-ng-X64.msi";
 
     // Linux: .deb packages from Debian repos (extracted portably, no root needed).
-    // Three packages: the CLI binary, the shared library, and the phoneme data.
+    // Four packages: the CLI binary, runtime shared libraries, and phoneme data.
     private const string DebianEspeakBase = "https://deb.debian.org/debian/pool/main/e/espeak-ng";
     private const string DebianEspeakVersion = "1.52.0+dfsg-5+b1";
+    private const string DebianPcaudioBase = "https://deb.debian.org/debian/pool/main/p/pcaudiolib";
+    private const string DebianPcaudioVersion = "1.3-1+b1";
 
     public static string[] EspeakLinuxDebUrls
     {
@@ -58,6 +60,7 @@ public static class PlatformInfo
                 $"{DebianEspeakBase}/espeak-ng_{DebianEspeakVersion}_{arch}.deb",
                 $"{DebianEspeakBase}/libespeak-ng1_{DebianEspeakVersion}_{arch}.deb",
                 $"{DebianEspeakBase}/espeak-ng-data_{DebianEspeakVersion}_{arch}.deb",
+                $"{DebianPcaudioBase}/libpcaudio0_{DebianPcaudioVersion}_{arch}.deb",
             ];
         }
     }

@@ -132,10 +132,14 @@ public sealed class EspeakStep(DownloadService downloader, ProcessRunner runner)
         var usrLib = Path.Combine(extractDir, "usr", "lib");
         if (Directory.Exists(usrLib))
         {
-            foreach (var soFile in Directory.GetFiles(usrLib, "libespeak-ng*", SearchOption.AllDirectories))
+            var soPatterns = new[] { "libespeak-ng*", "libpcaudio*" };
+            foreach (var pattern in soPatterns)
             {
-                var destName = Path.GetFileName(soFile);
-                File.Copy(soFile, Path.Combine(espeakDir, destName), overwrite: true);
+                foreach (var soFile in Directory.GetFiles(usrLib, pattern, SearchOption.AllDirectories))
+                {
+                    var destName = Path.GetFileName(soFile);
+                    File.Copy(soFile, Path.Combine(espeakDir, destName), overwrite: true);
+                }
             }
         }
 
