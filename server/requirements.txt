@@ -1,5 +1,9 @@
-TTS==0.22.0
+coqui-tts==0.27.5
 flask==3.0.3
 waitress==3.0.2
-scipy==1.11.4
-numpy==1.22.0
+scipy==1.14.1
+numpy==2.2.3
+torch
+torchaudio
+torchcodec
+transformers<5
