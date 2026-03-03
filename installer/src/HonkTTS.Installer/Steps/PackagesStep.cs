@@ -42,5 +42,56 @@ public sealed class PackagesStep(ProcessRunner runner) : IInstallStep
             config.VenvDir);
 
         File.Delete(tempReqs);
+
+        PatchEspeakWrapper(config);
+    }
+
+    /// <summary>
+    /// Patches Coqui TTS's espeak_wrapper.py to tolerate non-UTF-8 output from eSpeak.
+    /// eSpeak outputs in the system code page (e.g., CP1250 for Polish) which isn't valid UTF-8.
+    /// Without this patch, importing TTS crashes with UnicodeDecodeError on affected systems.
+    /// </summary>
+    private static void PatchEspeakWrapper(InstallConfig config)
+    {
+        var sitePackages = PlatformInfo.IsWindows
+            ? Path.Combine(config.VenvDir, "Lib", "site-packages")
+            : Path.Combine(config.VenvDir, "lib", "python3.10", "site-packages");
+
+        var wrapper = Path.Combine(sitePackages,
+            "TTS", "tts", "utils", "text", "phonemizers", "espeak_wrapper.py");
+
+        if (!File.Exists(wrapper))
+        {
+            Console.WriteLine("    Skipped espeak_wrapper patch (file not found)");
+            return;
+        }
+
+        var content = File.ReadAllText(wrapper);
+        var patched = content;
+
+        // Patch 1: _espeak_exe() — subprocess.run with strict encoding="utf8"
+        patched = patched.Replace(
+            """encoding="utf8", check=True""",
+            """encoding="utf8", errors="replace", check=True""");
+
+        // Patch 2: get_espeakng_version() — subprocess.getoutput doesn't support errors=,
+        // so replace with subprocess.run equivalent that does.
+        patched = patched.Replace(
+            """subprocess.getoutput("espeak-ng --version")""",
+            """subprocess.run("espeak-ng --version", shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, encoding="utf-8", errors="replace").stdout""");
+
+        // Patch 3: get_espeak_version() — same issue with the legacy espeak binary
+        patched = patched.Replace(
+            """subprocess.getoutput("espeak --version")""",
+            """subprocess.run("espeak --version", shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, encoding="utf-8", errors="replace").stdout""");
+
+        if (patched == content)
+        {
+            Console.WriteLine("    espeak_wrapper already patched (or pattern not found)");
+            return;
+        }
+
+        File.WriteAllText(wrapper, patched);
+        Console.WriteLine("    Patched espeak_wrapper.py (added errors=\"replace\")");
     }
 }

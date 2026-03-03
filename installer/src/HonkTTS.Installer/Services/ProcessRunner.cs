@@ -77,6 +77,10 @@ public sealed class ProcessRunner
                 psi.Environment[key] = value;
         }
 
+        // Force UTF-8 encoding for Python processes to avoid crashes on
+        // non-ASCII paths (e.g., usernames with diacritics).
+        psi.Environment["PYTHONUTF8"] = "1";
+
         using var process = new Process { StartInfo = psi };
         var stdout = new StringBuilder();
         var stderr = new StringBuilder();
