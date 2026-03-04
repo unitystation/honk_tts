@@ -43,17 +43,20 @@ public sealed class ServerFilesStep : IInstallStep
         if (PlatformInfo.IsWindows)
         {
             // Use %~dp0-relative paths so the bat file is pure ASCII and works
-            // regardless of the system code page
-            var bat = """
-                @echo off
-                setlocal
-                set "INSTALL_DIR=%~dp0"
-                set "ESPEAK_DATA_PATH=%INSTALL_DIR%espeak-ng\espeak-ng-data"
-                set "PATH=%INSTALL_DIR%espeak-ng;%PATH%"
-                set PYTHONUTF8=1
-                echo Starting HonkTTS server on http://127.0.0.1:5234 ...
-                "%INSTALL_DIR%venv\Scripts\python.exe" "%INSTALL_DIR%server\tts_server.py"
-                """;
+            // regardless of the system code page.
+            // Convert to 8.3 short paths so eSpeak-NG (which uses narrow-char
+            // fopen/stat) can resolve paths with diacritics (e.g. C:\Users\Łukasz\...).
+            const string bat = """
+                               @echo off
+                               setlocal
+                               set "INSTALL_DIR=%~dp0"
+                               for %%I in ("%INSTALL_DIR%.") do set "INSTALL_DIR=%%~fsI\"
+                               set "ESPEAK_DATA_PATH=%INSTALL_DIR%espeak-ng\espeak-ng-data"
+                               set "PATH=%INSTALL_DIR%espeak-ng;%PATH%"
+                               set PYTHONUTF8=1
+                               echo Starting HonkTTS server on http://127.0.0.1:5234 ...
+                               "%INSTALL_DIR%venv\Scripts\python.exe" "%INSTALL_DIR%server\tts_server.py"
+                               """;
 
             File.WriteAllText(config.StartScript, bat);
             Console.WriteLine("    Generated start_tts.bat");
@@ -61,18 +64,18 @@ public sealed class ServerFilesStep : IInstallStep
         else if (PlatformInfo.IsLinux)
         {
             // Use $SCRIPT_DIR-relative paths for the same reason as Windows.
-            var sh = """
-                #!/usr/bin/env bash
-                SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-                if [ -d "$SCRIPT_DIR/espeak-ng" ]; then
-                  export ESPEAK_DATA_PATH="$SCRIPT_DIR/espeak-ng/espeak-ng-data"
-                  export LD_LIBRARY_PATH="$SCRIPT_DIR/espeak-ng:$LD_LIBRARY_PATH"
-                  export PATH="$SCRIPT_DIR/espeak-ng:$PATH"
-                fi
-                export PYTHONUTF8=1
-                echo "Starting HonkTTS server on http://127.0.0.1:5234 ..."
-                "$SCRIPT_DIR/venv/bin/python" "$SCRIPT_DIR/server/tts_server.py"
-                """;
+            const string sh = """
+                              #!/usr/bin/env bash
+                              SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+                              if [ -d "$SCRIPT_DIR/espeak-ng" ]; then
+                                export ESPEAK_DATA_PATH="$SCRIPT_DIR/espeak-ng/espeak-ng-data"
+                                export LD_LIBRARY_PATH="$SCRIPT_DIR/espeak-ng:$LD_LIBRARY_PATH"
+                                export PATH="$SCRIPT_DIR/espeak-ng:$PATH"
+                              fi
+                              export PYTHONUTF8=1
+                              echo "Starting HonkTTS server on http://127.0.0.1:5234 ..."
+                              "$SCRIPT_DIR/venv/bin/python" "$SCRIPT_DIR/server/tts_server.py"
+                              """;
 
             File.WriteAllText(config.StartScript, sh);
             if (!OperatingSystem.IsWindows())
@@ -83,13 +86,13 @@ public sealed class ServerFilesStep : IInstallStep
         else
         {
             // macOS: espeak-ng is system-installed via brew, no env vars needed
-            var sh = """
-                #!/usr/bin/env bash
-                SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-                export PYTHONUTF8=1
-                echo "Starting HonkTTS server on http://127.0.0.1:5234 ..."
-                "$SCRIPT_DIR/venv/bin/python" "$SCRIPT_DIR/server/tts_server.py"
-                """;
+            const string sh = """
+                              #!/usr/bin/env bash
+                              SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+                              export PYTHONUTF8=1
+                              echo "Starting HonkTTS server on http://127.0.0.1:5234 ..."
+                              "$SCRIPT_DIR/venv/bin/python" "$SCRIPT_DIR/server/tts_server.py"
+                              """;
 
             File.WriteAllText(config.StartScript, sh);
             if (!OperatingSystem.IsWindows())
@@ -111,32 +114,33 @@ public sealed class ServerFilesStep : IInstallStep
 
         if (PlatformInfo.IsWindows)
         {
-            var bat = """
-                @echo off
-                setlocal
-                set "INSTALL_DIR=%~dp0"
-                set "ESPEAK_DATA_PATH=%INSTALL_DIR%espeak-ng\espeak-ng-data"
-                set "PATH=%INSTALL_DIR%espeak-ng;%PATH%"
-                set PYTHONUTF8=1
-                "%INSTALL_DIR%venv\Scripts\python.exe" "%INSTALL_DIR%server\test_server.py" %*
-                """;
+            const string bat = """
+                               @echo off
+                               setlocal
+                               set "INSTALL_DIR=%~dp0"
+                               for %%I in ("%INSTALL_DIR%.") do set "INSTALL_DIR=%%~fsI\"
+                               set "ESPEAK_DATA_PATH=%INSTALL_DIR%espeak-ng\espeak-ng-data"
+                               set "PATH=%INSTALL_DIR%espeak-ng;%PATH%"
+                               set PYTHONUTF8=1
+                               "%INSTALL_DIR%venv\Scripts\python.exe" "%INSTALL_DIR%server\test_server.py" %*
+                               """;
 
             File.WriteAllText(config.TestScript, bat);
             Console.WriteLine("    Generated test_tts.bat");
         }
         else if (PlatformInfo.IsLinux)
         {
-            var sh = """
-                #!/usr/bin/env bash
-                SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-                if [ -d "$SCRIPT_DIR/espeak-ng" ]; then
-                  export ESPEAK_DATA_PATH="$SCRIPT_DIR/espeak-ng/espeak-ng-data"
-                  export LD_LIBRARY_PATH="$SCRIPT_DIR/espeak-ng:$LD_LIBRARY_PATH"
-                  export PATH="$SCRIPT_DIR/espeak-ng:$PATH"
-                fi
-                export PYTHONUTF8=1
-                "$SCRIPT_DIR/venv/bin/python" "$SCRIPT_DIR/server/test_server.py" "$@"
-                """;
+            const string sh = """
+                              #!/usr/bin/env bash
+                              SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+                              if [ -d "$SCRIPT_DIR/espeak-ng" ]; then
+                                export ESPEAK_DATA_PATH="$SCRIPT_DIR/espeak-ng/espeak-ng-data"
+                                export LD_LIBRARY_PATH="$SCRIPT_DIR/espeak-ng:$LD_LIBRARY_PATH"
+                                export PATH="$SCRIPT_DIR/espeak-ng:$PATH"
+                              fi
+                              export PYTHONUTF8=1
+                              "$SCRIPT_DIR/venv/bin/python" "$SCRIPT_DIR/server/test_server.py" "$@"
+                              """;
 
             File.WriteAllText(config.TestScript, sh);
             if (!OperatingSystem.IsWindows())
@@ -146,12 +150,12 @@ public sealed class ServerFilesStep : IInstallStep
         }
         else
         {
-            var sh = """
-                #!/usr/bin/env bash
-                SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-                export PYTHONUTF8=1
-                "$SCRIPT_DIR/venv/bin/python" "$SCRIPT_DIR/server/test_server.py" "$@"
-                """;
+            const string sh = """
+                              #!/usr/bin/env bash
+                              SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+                              export PYTHONUTF8=1
+                              "$SCRIPT_DIR/venv/bin/python" "$SCRIPT_DIR/server/test_server.py" "$@"
+                              """;
 
             File.WriteAllText(config.TestScript, sh);
             if (!OperatingSystem.IsWindows())

@@ -24,8 +24,7 @@ public sealed class EspeakStep(DownloadService downloader, ProcessRunner runner)
         if (installed is null)
             return true; // Recover from interrupted installs without config.json
 
-        return installed != null &&
-               installed.EspeakVersion != config.ExpectedManifest.EspeakVersion;
+        return installed.EspeakVersion != config.ExpectedManifest.EspeakVersion;
     }
 
     public async Task ExecuteAsync(InstallConfig config)
@@ -47,7 +46,7 @@ public sealed class EspeakStep(DownloadService downloader, ProcessRunner runner)
         var msiPath = Path.Combine(config.TempDir, "espeak-ng-X64.msi");
 
         Console.WriteLine("    Downloading eSpeak NG 1.51...");
-        await downloader.DownloadFileAsync(PlatformInfo.EspeakMsiUrl, msiPath);
+        await downloader.DownloadFileAsync(PlatformInfo.ESPEAK_MSI_URL, msiPath);
 
         var extractDir = Path.Combine(config.TempDir, "espeak-extract");
         Console.WriteLine("    Extracting eSpeak NG...");

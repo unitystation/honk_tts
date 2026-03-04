@@ -62,11 +62,13 @@ public sealed class ModelWarmupStep(ProcessRunner runner) : IInstallStep
         if (!PlatformInfo.RequiresEspeakDownload)
             return null; // system-installed espeak (macOS brew), no env needed
 
+        var espeakDataDir = PlatformInfo.ToShortPathOrOriginal(config.EspeakDataDir);
+        var espeakDir = PlatformInfo.ToShortPathOrOriginal(config.EspeakDir);
         var pathSep = PlatformInfo.IsWindows ? ";" : ":";
         var env = new Dictionary<string, string>
         {
-            ["ESPEAK_DATA_PATH"] = config.EspeakDataDir,
-            ["PATH"] = $"{config.EspeakDir}{pathSep}{Environment.GetEnvironmentVariable("PATH")}",
+            ["ESPEAK_DATA_PATH"] = espeakDataDir,
+            ["PATH"] = $"{espeakDir}{pathSep}{Environment.GetEnvironmentVariable("PATH")}",
         };
 
         // Linux needs LD_LIBRARY_PATH for the portable shared library

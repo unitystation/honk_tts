@@ -38,7 +38,7 @@ public sealed class PackagesStep(ProcessRunner runner) : IInstallStep
         Console.WriteLine("    Installing packages (this may take several minutes)...");
         await runner.RunAsync(
             config.VenvPipExe,
-            $"install -r \"{tempReqs}\" --extra-index-url {PlatformInfo.PytorchIndexUrl}",
+            $"install -r \"{tempReqs}\" --extra-index-url {PlatformInfo.PYTORCH_INDEX_URL}",
             config.VenvDir);
 
         File.Delete(tempReqs);
@@ -69,21 +69,28 @@ public sealed class PackagesStep(ProcessRunner runner) : IInstallStep
         var content = File.ReadAllText(wrapper);
         var patched = content;
 
-        // Patch 1: _espeak_exe() — subprocess.run with strict encoding="utf8"
+        // Patch 1: _espeak_exe() - subprocess.run with strict encoding="utf8"
         patched = patched.Replace(
             """encoding="utf8", check=True""",
             """encoding="utf8", errors="replace", check=True""");
 
-        // Patch 2: get_espeakng_version() — subprocess.getoutput doesn't support errors=,
+        // Patch 2: get_espeakng_version() - subprocess.getoutput doesn't support errors=,
         // so replace with subprocess.run equivalent that does.
         patched = patched.Replace(
             """subprocess.getoutput("espeak-ng --version")""",
             """subprocess.run("espeak-ng --version", shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, encoding="utf-8", errors="replace").stdout""");
 
-        // Patch 3: get_espeak_version() — same issue with the legacy espeak binary
+        // Patch 3: get_espeak_version() - same issue with the legacy espeak binary
         patched = patched.Replace(
             """subprocess.getoutput("espeak --version")""",
             """subprocess.run("espeak --version", shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, encoding="utf-8", errors="replace").stdout""");
+
+        // Patch 4: All remaining manual .decode("utf8") calls — in supported_languages(),
+        // phonemize_espeak(), and version(). These iterate raw bytes from the espeak
+        // ctypes interface, which uses the system code page on Windows (e.g. CP1250).
+        patched = patched.Replace(
+            """.decode("utf8")""",
+            """.decode("utf8", errors="replace")""");
 
         if (patched == content)
         {
