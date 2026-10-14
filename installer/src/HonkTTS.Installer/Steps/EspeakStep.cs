@@ -1,3 +1,5 @@
+using System.Formats.Tar;
+using System.IO.Compression;
 using HonkTTS.Installer.Models;
 using HonkTTS.Installer.Services;
 
@@ -6,7 +8,9 @@ namespace HonkTTS.Installer.Steps;
 /// <summary>
 /// Ensures eSpeak NG is available.
 /// - Windows: downloads the MSI from GitHub and extracts it portably via msiexec /a.
-/// - Linux/macOS: checks that espeak-ng is system-installed.
+/// - Linux x64: downloads a fully static espeak-ng build (no glibc/audio deps), so it also
+///   works inside the Steam runtime, Flatpak and immutable distros.
+/// - Linux arm64/macOS: should install system wide or get fucked.
 /// </summary>
 public sealed class EspeakStep(DownloadService downloader, ProcessRunner runner) : IInstallStep
 {
@@ -32,6 +36,12 @@ public sealed class EspeakStep(DownloadService downloader, ProcessRunner runner)
         if (PlatformInfo.IsWindows)
         {
             await DownloadAndExtractWindows(config);
+            return;
+        }
+
+        if (PlatformInfo.IsLinuxX64)
+        {
+            await DownloadAndExtractLinux(config);
             return;
         }
 
@@ -63,6 +73,64 @@ public sealed class EspeakStep(DownloadService downloader, ProcessRunner runner)
 
         Directory.Delete(extractDir, recursive: true);
         File.Delete(msiPath);
+    }
+
+    private async Task DownloadAndExtractLinux(InstallConfig config)
+    {
+        Directory.CreateDirectory(config.TempDir);
+        var archivePath = Path.Combine(config.TempDir, "espeak-ng-linux-x64.tar.gz");
+
+        Console.WriteLine("    Downloading eSpeak NG 1.51 (static build)...");
+        await downloader.DownloadFileAsync(PlatformInfo.EspeakLinuxX64Url, archivePath,
+            PlatformInfo.EspeakLinuxX64Sha256);
+
+        var extractDir = Path.Combine(config.TempDir, "espeak-extract");
+        if (Directory.Exists(extractDir))
+            Directory.Delete(extractDir, recursive: true);
+        Directory.CreateDirectory(extractDir);
+
+        Console.WriteLine("    Extracting eSpeak NG...");
+        await using (var fileStream = File.OpenRead(archivePath))
+        await using (var gzipStream = new GZipStream(fileStream, CompressionMode.Decompress))
+            await TarFile.ExtractToDirectoryAsync(gzipStream, extractDir, overwriteFiles: true);
+
+        var sourceDir = FindFileInTree(extractDir, "espeak-ng");
+
+        // Temp dir lives under BaseDir, so this is a same-filesystem rename.
+        if (Directory.Exists(config.EspeakDir))
+            Directory.Delete(config.EspeakDir, recursive: true);
+        Directory.Move(sourceDir, config.EspeakDir);
+
+        if (!OperatingSystem.IsWindows())
+            SetExecutable(config.EspeakExe);
+
+        if (Directory.Exists(extractDir))
+            Directory.Delete(extractDir, recursive: true);
+        File.Delete(archivePath);
+
+        await ValidateEspeak(config);
+    }
+
+    private async Task ValidateEspeak(InstallConfig config)
+    {
+        var env = new Dictionary<string, string> { ["ESPEAK_DATA_PATH"] = config.EspeakDataDir };
+        var result = await runner.RunWithResultAsync(config.EspeakExe, "--voices=variant", config.BaseDir, env);
+
+        if (result.ExitCode != 0 || !result.StdOut.Contains("variant", StringComparison.Ordinal))
+        {
+            var output = string.IsNullOrWhiteSpace(result.StdErr) ? result.StdOut : result.StdErr;
+            throw new InvalidOperationException(
+                $"Bundled eSpeak NG failed to run (exit code {result.ExitCode}).\n{output}");
+        }
+    }
+
+    [System.Runtime.Versioning.UnsupportedOSPlatform("windows")]
+    private static void SetExecutable(string path)
+    {
+        File.SetUnixFileMode(path,
+            UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute |
+            UnixFileMode.GroupRead | UnixFileMode.GroupExecute |
+            UnixFileMode.OtherRead | UnixFileMode.OtherExecute);
     }
 
     private static bool IsEspeakOnPath()

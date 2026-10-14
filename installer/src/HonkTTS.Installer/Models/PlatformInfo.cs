@@ -63,8 +63,23 @@ public static class PlatformInfo
 
     public const string ESPEAK_MSI_URL =
         "https://github.com/espeak-ng/espeak-ng/releases/download/1.51/espeak-ng-X64.msi";
+    
+    // HONKTTS_ESPEAK_URL override this env var for testing, otherwise we will try to download from github release.
+    private static string? EspeakUrlOverride =>
+        Environment.GetEnvironmentVariable("HONKTTS_ESPEAK_URL") is { Length: > 0 } url ? url : null;
 
-    public static bool RequiresEspeakDownload => IsWindows;
+    public static string EspeakLinuxX64Url => EspeakUrlOverride
+        ?? "https://github.com/unitystation/honk_tts/releases/download/espeak-ng-1.51/espeak-ng-1.51-linux-x64.tar.gz";
+
+    // Hash of the published bundle; skipped when testing an override.
+    public static string? EspeakLinuxX64Sha256 => EspeakUrlOverride is null
+        ? "a72a11b175aa46b91c70634f4b13acff223924b90a348427e74c0c41433cc8d1"
+        : null;
+
+    public static bool IsLinuxX64 =>
+        IsLinux && RuntimeInformation.ProcessArchitecture == Architecture.X64;
+
+    public static bool RequiresEspeakDownload => IsWindows || IsLinuxX64;
 
     public const string PYTORCH_INDEX_URL = "https://download.pytorch.org/whl/cpu";
 

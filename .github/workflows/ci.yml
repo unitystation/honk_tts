@@ -22,8 +22,8 @@ jobs:
           - os: ubuntu-latest
             label: lin64
             build_cmd: |
-              chmod +x ./build.sh
-              ./build.sh
+              # Built inside the Steam sniper SDK so the binary only needs glibc 2.31
+              ./tools/build-linux-sniper.sh
           - os: macos-latest
             label: osx
             build_cmd: |
@@ -75,13 +75,6 @@ jobs:
             echo "Missing installer binary in build/"
             exit 1
           fi
-
-      - name: Install eSpeak prerequisite (Linux)
-        if: runner.os == 'Linux'
-        shell: bash
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y espeak-ng
 
       - name: Install eSpeak prerequisite (macOS)
         if: runner.os == 'macOS'

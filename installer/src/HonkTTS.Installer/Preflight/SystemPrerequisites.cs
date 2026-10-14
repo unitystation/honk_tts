@@ -7,7 +7,7 @@ internal static class SystemPrerequisites
 {
     public static void EnsureSystemEspeakPrerequisite()
     {
-        if (PlatformInfo.IsWindows)
+        if (PlatformInfo.RequiresEspeakDownload)
             return;
 
         if (TryProbeEspeak(out _))

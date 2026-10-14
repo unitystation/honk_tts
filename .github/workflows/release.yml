@@ -28,8 +28,8 @@ jobs:
             label: lin64
             archive: lin64.zip
             build_cmd: |
-              chmod +x ./build.sh
-              ./build.sh
+              # Built inside the Steam sniper SDK so the binary only needs glibc 2.31
+              ./tools/build-linux-sniper.sh
             archive_cmd: |
               asset="lin64.zip"
               (
