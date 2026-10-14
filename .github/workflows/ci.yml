@@ -23,7 +23,7 @@ jobs:
             label: lin64
             build_cmd: |
               # Built inside the Steam sniper SDK so the binary only needs glibc 2.31
-              ./tools/build-linux-sniper.sh
+              bash ./tools/build-linux-sniper.sh
           - os: macos-latest
             label: osx
             build_cmd: |
