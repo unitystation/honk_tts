@@ -1,0 +1,56 @@
+name: eSpeak NG Linux bundle
+
+# build espeak-ng for bundling on linux
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: espeak-ng version to build
+        default: "1.51"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build, test and publish
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ inputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build static espeak-ng
+        run: |
+          mkdir -p out
+          docker run --rm -e ESPEAK_VERSION="$VERSION" -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
+            -v "$PWD/tools/espeak:/scripts:ro" -v "$PWD/out:/out" \
+            alpine:3.20 sh /scripts/build-espeak-static.sh
+
+      - name: Test bundle in Steam runtime (sniper)
+        run: |
+          docker run --rm -v "$PWD/out/espeak-ng:/bundle:ro" -v "$PWD/tools/espeak:/scripts:ro" \
+            registry.gitlab.steamos.cloud/steamrt/sniper/platform:latest sh /scripts/test-espeak.sh
+
+      - name: Package
+        run: |
+          asset="espeak-ng-${VERSION}-linux-x64.tar.gz"
+          tar -C out -czf "$asset" espeak-ng
+          sha256sum "$asset" | tee "$asset.sha256"
+          echo "ASSET=$asset" >> "$GITHUB_ENV"
+
+      - name: Publish to release espeak-ng-${{ inputs.version }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: espeak-ng-${{ inputs.version }}
+          name: eSpeak NG ${{ inputs.version }} (Linux x64 static bundle)
+          body: Static espeak-ng build used by the HonkTTS installer on Linux x64. Not a HonkTTS release.
+          # Never "latest": PuduLauncher installs whatever releases/latest points to.
+          prerelease: true
+          make_latest: false
+          files: |
+            ${{ env.ASSET }}
+            ${{ env.ASSET }}.sha256
